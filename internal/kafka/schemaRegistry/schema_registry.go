@@ -3,13 +3,11 @@ package schemaRegistry
 import (
 	"fmt"
 	"github.com/IBM/sarama"
-	av "github.com/hamba/avro/v2"
-	"github.com/philipparndt/go-logger"
-	kafka2 "gokcat/internal/kafka"
-
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry"
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry/serde"
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry/serde/avro"
+	av "github.com/hamba/avro/v2"
+	"github.com/philipparndt/go-logger"
 )
 
 type Client struct {
@@ -73,11 +71,6 @@ var schemaInfoCache = make(map[schemaInfoKey]*Schema)
 func (d *Deserializer) LoadSchemaInfo(topic string, msg *sarama.ConsumerMessage) (*Schema, error) {
 	id := (uint32(msg.Value[1]) << 24) | (uint32(msg.Value[2]) << 16) | (uint32(msg.Value[3]) << 8) | uint32(msg.Value[4])
 
-	schemaID, err := serde.NewSchemaID("avro", int(id), "")
-	if err != nil {
-		return nil, err
-	}
-
 	key := schemaInfoKey{
 		topic: topic,
 		id:    int(id),
@@ -86,7 +79,8 @@ func (d *Deserializer) LoadSchemaInfo(topic string, msg *sarama.ConsumerMessage)
 	schema := schemaInfoCache[key]
 
 	if schema == nil {
-		info, _, err := d.deserializer.GetWriterSchema(topic, kafka2.ConvertHeaders(msg.Headers), msg.Value, schemaID)
+		info, err := d.deserializer.GetSchema(topic, msg.Value)
+
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +90,7 @@ func (d *Deserializer) LoadSchemaInfo(topic string, msg *sarama.ConsumerMessage)
 			return nil, err
 		}
 
-		s.ID = schemaID.ID
+		s.ID = int(id)
 		schema = &s
 
 		schemaInfoCache[key] = schema
