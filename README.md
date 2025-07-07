@@ -2,6 +2,12 @@
 
 `gokcat` is a command-line tool for consuming messages in JSON format from Apache Kafka, inspired by `kcat`. It is written in Go and provides a simple interface for consuming messages from Kafka clusters, including support for TLS and Schema Registry.
 
+## Install
+
+```bash
+brew install philipparndt/gokcat/gokcat
+```
+
 ## Features
 - Consume messages from Kafka topics
 - TLS support for secure connections
