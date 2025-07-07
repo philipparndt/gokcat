@@ -1,0 +1,100 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+release:
+  github:
+    owner: philipparndt
+    name: gokcat
+
+archives:
+  - formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    # use zip for windows archives
+    format_overrides:
+    - goos: windows
+      formats: [zip]
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+brews:
+  - name: gokcat
+
+    goarm: 6
+    goamd64: v1
+
+    url_template: "https://github.com/philipparndt/gokcat/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+
+    commit_author:
+      name: Philipp Arndt
+      email: opensource@rnd7.de
+
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+
+    directory: Formula
+
+    caveats: "Run using gokcat."
+
+    homepage: "https://github.com/philipparndt/gokcat"
+
+    description: "Command-line tool for consuming Kafka topics"
+
+    license: "Apache-2.0"
+
+    install: |
+      bin.install "gokcat"
+
+      begin
+        bash_output = Utils.safe_popen_read({ "SHELL" => "bash" }, "#{bin}/gokcat completion bash")
+        (bash_completion/"gokcat").write bash_output
+      rescue => e
+        opoo "Failed to install bash completion: #{e}"
+      end
+
+      begin
+        zsh_output = Utils.safe_popen_read({ "SHELL" => "zsh" }, "#{bin}/gokcat completion zsh")
+        (zsh_completion/"_gokcat").write zsh_output
+      rescue => e
+        opoo "Failed to install zsh completion: #{e}"
+      end
+
+      begin
+        fish_output = Utils.safe_popen_read({ "SHELL" => "fish" }, "#{bin}/gokcat completion fish")
+        (fish_completion/"gokcat.fish").write fish_output
+      rescue => e
+        opoo "Failed to install fish completion: #{e}"
+      end
+
+    repository:
+      owner: philipparndt
+      name: homebrew-gokcat
+      branch: main
+
+      pull_request:
+        enabled: false
+        draft: false
