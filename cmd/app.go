@@ -1,0 +1,103 @@
+package cmd
+
+import (
+	"encoding/json"
+	"fmt"
+	"github.com/IBM/sarama"
+	"github.com/philipparndt/go-logger"
+	"gokcat/config"
+	"gokcat/internal/kafka"
+	"gokcat/internal/kafka/schemaRegistry"
+	"gokcat/message"
+)
+
+func runCat(topic string, cfg config.Config) {
+	partition := int32(0)
+	tlsConfig, err := kafka.NewTLSConfig(cfg.Certs.ClientCert, cfg.Certs.ClientKey, cfg.Certs.Ca, cfg.Certs.Insecure)
+	if err != nil {
+		logger.Panic("Failed to create TLS config", err)
+	}
+
+	kConfig := sarama.NewConfig()
+	kConfig.Net.TLS.Enable = true
+	kConfig.Net.TLS.Config = tlsConfig
+
+	sr := schemaRegistry.New(cfg.SchemaRegistry.Url,
+		cfg.SchemaRegistry.Username,
+		cfg.SchemaRegistry.Password,
+		cfg.SchemaRegistry.Insecure,
+	)
+
+	deserializer := sr.NewDeserializer()
+	logger.Debug("Created deserializer successfully")
+
+	client, err := sarama.NewClient([]string{cfg.Broker}, kConfig)
+	if err != nil {
+		logger.Panic("Failed to create client", err)
+	}
+	defer client.Close()
+
+	consumer, err := sarama.NewConsumerFromClient(client)
+	if err != nil {
+		logger.Panic("Failed to create consumer from client", err)
+	}
+	defer consumer.Close()
+
+	// Get latest offset (the "high watermark")
+	latestOffset, err := client.GetOffset(topic, partition, sarama.OffsetNewest)
+	if err != nil {
+		logger.Panic("Failed to get latest offset", err)
+	}
+
+	latestOffset -= 1
+	logger.Info("Consuming until offset", latestOffset)
+
+	pc, err := consumer.ConsumePartition(topic, partition, sarama.OffsetOldest)
+	if err != nil {
+		logger.Panic("Failed to consume partition", err)
+	}
+	defer pc.Close()
+
+	for msg := range pc.Messages() {
+		// Check if the message is empty or too short to contain a schema ID
+		if len(msg.Value) < 5 {
+			logger.Error("Message too short to contain schema ID", "length", len(msg.Value))
+			if msg.Offset >= latestOffset-1 {
+				fmt.Println("Reached end of topic. Exiting.")
+				break
+			}
+			continue
+		}
+
+		// Check if the message starts with magic byte (0x0 for Confluent wire format)
+		if msg.Value[0] != 0x0 {
+			logger.Error("Message does not start with expected magic byte", "first_byte", msg.Value[0])
+			if msg.Offset >= latestOffset-1 {
+				fmt.Println("Reached end of topic. Exiting.")
+				break
+			}
+			continue
+		}
+
+		schema, err := deserializer.LoadSchemaInfo(topic, msg)
+		if err != nil {
+			logger.Panic("Failed to load schema info", err)
+		}
+
+		payloadData := deserializer.Deserialize(schema, msg.Value[5:])
+
+		out := message.New(schema, payloadData, msg)
+
+		jsonPayload, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			logger.Error("Failed to marshal payload data to JSON", "error", err)
+			continue
+		}
+		fmt.Println(string(jsonPayload))
+
+		if msg.Offset >= latestOffset-1 {
+			logger.Info("Reached end of topic. Exiting.")
+			break
+		}
+	}
+}
