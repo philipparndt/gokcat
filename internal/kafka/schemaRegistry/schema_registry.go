@@ -1,64 +1,96 @@
 package schemaRegistry
 
 import (
+	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"time"
+
 	"github.com/IBM/sarama"
-	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry"
-	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry/serde"
-	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry/serde/avro"
 	av "github.com/hamba/avro/v2"
-	"github.com/philipparndt/go-logger"
 )
 
 type Client struct {
-	client schemaregistry.Client
+	url        string
+	username   string
+	password   string
+	httpClient *http.Client
 }
 
 type Deserializer struct {
-	deserializer *avro.GenericDeserializer
+	client *Client
+}
+
+type SchemaResponse struct {
+	Schema string `json:"schema"`
+	ID     int    `json:"id"`
 }
 
 func New(url string, username string, password string, insecure bool) Client {
-	// Configure Schema Registry client with Basic Auth
-	schemaRegistryConfig := schemaregistry.NewConfig(url)
-
-	if username != "" || password != "" {
-		schemaRegistryConfig.BasicAuthUserInfo = fmt.Sprintf("%s:%s", username, password)
-		schemaRegistryConfig.BasicAuthCredentialsSource = "USER_INFO"
+	// Configure HTTP client with SSL settings
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: insecure},
 	}
-
-	// Configure SSL for schema registry client
-	schemaRegistryConfig.SslDisableEndpointVerification = insecure
-
-	client, err := schemaregistry.NewClient(schemaRegistryConfig)
-	if err != nil {
-		logger.Panic("Error creating schema client", err)
+	
+	httpClient := &http.Client{
+		Transport: tr,
+		Timeout:   30 * time.Second,
 	}
 
 	return Client{
-		client: client,
+		url:        url,
+		username:   username,
+		password:   password,
+		httpClient: httpClient,
 	}
 }
 
 func (c Client) NewDeserializer() Deserializer {
-	config := avro.NewDeserializerConfig()
-	deserializer, err := avro.NewGenericDeserializer(c.client, serde.ValueSerde, config)
-	if err != nil {
-		logger.Error("Failed to create deserializer", err)
-		panic(err)
-	}
-
 	return Deserializer{
-		deserializer: deserializer,
+		client: &c,
 	}
 }
 
-func (c Client) GetSubjects() ([]string, error) {
-	return c.client.GetAllSubjects()
-}
-
-func (c Client) GetSchema(subject string, id int) (schemaregistry.SchemaInfo, error) {
-	return c.client.GetBySubjectAndID(subject, id)
+// GetSchemaByID fetches a schema from the Schema Registry by its ID
+func (c *Client) GetSchemaByID(schemaID int) (*SchemaResponse, error) {
+	url := fmt.Sprintf("%s/schemas/ids/%d", c.url, schemaID)
+	
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+	
+	// Add Basic Auth if credentials are provided
+	if c.username != "" || c.password != "" {
+		req.SetBasicAuth(c.username, c.password)
+	}
+	
+	req.Header.Set("Content-Type", "application/json")
+	
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %v", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("schema registry returned status %d: %s", resp.StatusCode, string(body))
+	}
+	
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %v", err)
+	}
+	
+	var schemaResp SchemaResponse
+	if err := json.Unmarshal(body, &schemaResp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal schema response: %v", err)
+	}
+	
+	return &schemaResp, nil
 }
 
 type schemaInfoKey struct {
@@ -69,6 +101,12 @@ type schemaInfoKey struct {
 var schemaInfoCache = make(map[schemaInfoKey]*Schema)
 
 func (d *Deserializer) LoadSchemaInfo(topic string, msg *sarama.ConsumerMessage) (*Schema, error) {
+	// Extract schema ID from the Avro message (first 5 bytes: magic byte + 4-byte schema ID)
+	if len(msg.Value) < 5 {
+		return nil, fmt.Errorf("message too short to contain schema ID")
+	}
+	
+	// Skip magic byte (first byte) and extract schema ID (next 4 bytes, big-endian)
 	id := (uint32(msg.Value[1]) << 24) | (uint32(msg.Value[2]) << 16) | (uint32(msg.Value[3]) << 8) | uint32(msg.Value[4])
 
 	key := schemaInfoKey{
@@ -79,15 +117,15 @@ func (d *Deserializer) LoadSchemaInfo(topic string, msg *sarama.ConsumerMessage)
 	schema := schemaInfoCache[key]
 
 	if schema == nil {
-		info, err := d.deserializer.GetSchema(topic, msg.Value)
-
+		// Fetch schema from Schema Registry using REST API
+		schemaResp, err := d.client.GetSchemaByID(int(id))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get schema by ID %d: %v", id, err)
 		}
 
-		s, err := DeserializeSchema(info.Schema)
+		s, err := DeserializeSchema(schemaResp.Schema)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to deserialize schema: %v", err)
 		}
 
 		s.ID = int(id)
