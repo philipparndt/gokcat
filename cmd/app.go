@@ -12,7 +12,7 @@ import (
 	"strconv"
 )
 
-func runCat(topic string, cfg config.Config) {
+func runCat(topic string, cfg config.Config, follow bool) {
 	partition := int32(0)
 	tlsConfig, err := kafka.NewTLSConfig(cfg.Certs.ClientCert, cfg.Certs.ClientKey, cfg.Certs.Ca, cfg.Certs.Insecure)
 	if err != nil {
@@ -44,19 +44,24 @@ func runCat(topic string, cfg config.Config) {
 	}
 	defer consumer.Close()
 
-	// Get latest offset (the "high watermark")
-	latestOffset, err := client.GetOffset(topic, partition, sarama.OffsetNewest)
+	latestOffset, err := getOffset(client, partition)
 	if err != nil {
 		logger.Panic("Failed to get latest offset", err)
 	}
 
 	if latestOffset == 0 {
 		logger.Info("No messages found in topic", topic)
-		return
+		if !follow {
+			return
+		}
 	}
 
-	latestOffset -= 1
-	logger.Info("Consuming until offset", strconv.Itoa(int(latestOffset)))
+	if follow {
+		latestOffset = -1
+		logger.Info("Following topic, press Ctrl+C to exit")
+	} else {
+		logger.Info("Consuming until offset", strconv.Itoa(int(latestOffset)))
+	}
 
 	pc, err := consumer.ConsumePartition(topic, partition, sarama.OffsetOldest)
 	if err != nil {
@@ -101,9 +106,23 @@ func runCat(topic string, cfg config.Config) {
 		}
 		fmt.Println(string(jsonPayload))
 
-		if msg.Offset >= latestOffset-1 {
+		if msg.Offset >= latestOffset-1 && !follow {
 			logger.Info("Reached end of topic. Exiting.")
 			break
 		}
 	}
+}
+
+func getOffset(client sarama.Client, partition int32) (int64, error) {
+	// Get the latest offset (the "high watermark")
+	latestOffset, err := client.GetOffset(topic, partition, sarama.OffsetNewest)
+	if err != nil {
+		return 0, err
+	}
+
+	if latestOffset == 0 {
+		return 0, nil
+	}
+
+	return latestOffset - 1, nil
 }

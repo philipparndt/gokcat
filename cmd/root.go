@@ -33,7 +33,7 @@ var rootCmd = &cobra.Command{
 			logger.Panic("Failed to load config", configFile, ",", err)
 		}
 
-		runCat(topic, cfg)
+		runCat(topic, cfg, follow)
 	},
 }
 
@@ -49,9 +49,11 @@ func Execute() {
 var topic string
 var configFile string
 var systemAlias string
+var follow bool
 
 func init() {
 	rootCmd.Flags().StringVarP(&topic, "topic", "t", "", "Kafka topic to consume messages from")
 	rootCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the configuration file")
 	rootCmd.Flags().StringVarP(&systemAlias, "systemAlias", "s", "", "System alias")
+	rootCmd.Flags().BoolVarP(&follow, "follow", "f", false, "Follow the topic (like tail -f)")
 }
