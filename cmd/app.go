@@ -9,6 +9,7 @@ import (
 	"gokcat/internal/kafka"
 	"gokcat/internal/kafka/schemaRegistry"
 	"gokcat/message"
+	"strconv"
 )
 
 func runCat(topic string, cfg config.Config) {
@@ -49,8 +50,13 @@ func runCat(topic string, cfg config.Config) {
 		logger.Panic("Failed to get latest offset", err)
 	}
 
+	if latestOffset == 0 {
+		logger.Info("No messages found in topic", topic)
+		return
+	}
+
 	latestOffset -= 1
-	logger.Info("Consuming until offset", latestOffset)
+	logger.Info("Consuming until offset", strconv.Itoa(int(latestOffset)))
 
 	pc, err := consumer.ConsumePartition(topic, partition, sarama.OffsetOldest)
 	if err != nil {
