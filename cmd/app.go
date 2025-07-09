@@ -80,22 +80,21 @@ func runCat(topic string, cfg config.Config, follow bool) {
 			continue
 		}
 
+		var payloadData interface{} = nil
+		var schema *schemaRegistry.Schema
+
 		// Check if the message starts with magic byte (0x0 for Confluent wire format)
 		if msg.Value[0] != 0x0 {
-			logger.Error("Message does not start with expected magic byte", "first_byte", msg.Value[0])
-			if msg.Offset >= latestOffset-1 {
-				fmt.Println("Reached end of topic. Exiting.")
-				break
+			payloadDataString := decodeBase64OrRaw(msg.Value)
+			payloadData = decodeJSONOrRaw(payloadDataString)
+		} else {
+			schema, err := deserializer.LoadSchemaInfo(topic, msg)
+			if err != nil {
+				logger.Panic("Failed to load schema info", err)
 			}
-			continue
-		}
 
-		schema, err := deserializer.LoadSchemaInfo(topic, msg)
-		if err != nil {
-			logger.Panic("Failed to load schema info", err)
+			payloadData = deserializer.Deserialize(schema, msg.Value[5:])
 		}
-
-		payloadData := deserializer.Deserialize(schema, msg.Value[5:])
 
 		out := message.New(schema, payloadData, msg)
 
@@ -111,6 +110,24 @@ func runCat(topic string, cfg config.Config, follow bool) {
 			break
 		}
 	}
+}
+
+// decodeBase64OrRaw tries to decode the input as base64, returns raw bytes if not base64
+func decodeBase64OrRaw(data []byte) []byte {
+	decoded, err := strconv.Unquote("\"" + string(data) + "\"")
+	if err == nil {
+		return []byte(decoded)
+	}
+	return data
+}
+
+// decodeJSONOrRaw tries to decode the input as JSON, returns raw bytes if not JSON
+func decodeJSONOrRaw(data []byte) interface{} {
+	var v interface{}
+	if err := json.Unmarshal(data, &v); err == nil {
+		return v
+	}
+	return data
 }
 
 func getOffset(client sarama.Client, partition int32) (int64, error) {

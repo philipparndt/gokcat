@@ -32,11 +32,13 @@ type Message struct {
 	Payload interface{} `json:"payload"`
 }
 
-func New(schema *schemaRegistry.Schema, payloadData map[string]interface{}, msg *sarama.ConsumerMessage) Message {
+func New(schema *schemaRegistry.Schema, payloadData interface{}, msg *sarama.ConsumerMessage) Message {
 	out := Message{}
-	out.Schema.Id = schema.ID
-	out.Schema.Name = schema.Name
-	out.Schema.Namespace = schema.Namespace
+	if schema != nil {
+		out.Schema.Id = schema.ID
+		out.Schema.Name = schema.Name
+		out.Schema.Namespace = schema.Namespace
+	}
 	out.Metadata.Key = string(msg.Key)
 	out.Metadata.Timestamp = msg.Timestamp.Format(time.RFC3339)
 	out.Metadata.Offset = msg.Offset
