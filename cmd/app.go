@@ -88,7 +88,7 @@ func runCat(topic string, cfg config.Config, follow bool) {
 			payloadDataString := decodeBase64OrRaw(msg.Value)
 			payloadData = decodeJSONOrRaw(payloadDataString)
 		} else {
-			schema, err := deserializer.LoadSchemaInfo(topic, msg)
+			schema, err = deserializer.LoadSchemaInfo(topic, msg)
 			if err != nil {
 				logger.Panic("Failed to load schema info", err)
 			}

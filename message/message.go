@@ -17,10 +17,10 @@ type T struct {
 
 type Message struct {
 	Schema struct {
-		Id        int    `json:"id"`
-		Name      string `json:"name"`
-		Namespace string `json:"namespace"`
-	} `json:"schema"`
+		Id        int    `json:"id,omitempty"`
+		Name      string `json:"name,omitempty"`
+		Namespace string `json:"namespace,omitempty"`
+	} `json:"schema,omitempty"`
 
 	Metadata struct {
 		Offset    int64             `json:"offset"`
