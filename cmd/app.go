@@ -84,7 +84,7 @@ func runCat(topic string, cfg config.Config, follow bool) {
 		var schema *schemaRegistry.Schema
 
 		// Check if the message starts with magic byte (0x0 for Confluent wire format)
-		if msg.Value[0] != 0x0 {
+		if len(msg.Value) < 5 || msg.Value[0] != 0x0 {
 			payloadDataString := decodeBase64OrRaw(msg.Value)
 			payloadData = decodeJSONOrRaw(payloadDataString)
 		} else {
