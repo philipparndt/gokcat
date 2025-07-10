@@ -15,6 +15,7 @@ func Tail(topic string, amount int, follow bool, pc sarama.PartitionConsumer, de
 	// We'll consume from wherever we started and keep only the last N messages
 	ctr := 0
 	var messages []string
+	reachedLatest := false
 
 	for msg := range pc.Messages() {
 		if ctr%1000 == 0 && ctr > 0 {
@@ -46,22 +47,38 @@ func Tail(topic string, amount int, follow bool, pc sarama.PartitionConsumer, de
 			continue
 		}
 
-		// Keep only the last 'tail' messages in a sliding window
-		messages = append(messages, string(jsonPayload))
-		if len(messages) > amount {
-			messages = messages[1:] // Remove the first element
+		// Check if we've reached the latest offset
+		if msg.Offset >= latestOffset-1 {
+			reachedLatest = true
 		}
 
-		if msg.Offset >= latestOffset-1 {
-			break
+		if follow && reachedLatest {
+			// In follow mode, once we've caught up, output messages immediately
+			fmt.Print(string(jsonPayload))
+			if ctr > 1 {
+				fmt.Println(",")
+			}
+		} else {
+			// Keep only the last 'amount' messages in a sliding window
+			messages = append(messages, string(jsonPayload))
+			if len(messages) > amount {
+				messages = messages[1:] // Remove the first element
+			}
+
+			// If not following and we've reached the latest offset, break
+			if !follow && reachedLatest {
+				break
+			}
 		}
 	}
 
-	// Output the messages (which are already the last N)
-	for i, msg := range messages {
-		fmt.Print(msg)
-		if i < len(messages)-1 {
-			fmt.Println(",")
+	// Output the collected messages (only relevant for non-follow mode or initial batch in follow mode)
+	if !follow || !reachedLatest {
+		for i, msg := range messages {
+			fmt.Print(msg)
+			if i < len(messages)-1 {
+				fmt.Println(",")
+			}
 		}
 	}
 }
