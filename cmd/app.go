@@ -52,6 +52,7 @@ func runCat(topic string, cfg config.Config, follow bool) {
 	if latestOffset == 0 {
 		logger.Info("No messages found in topic", topic)
 		if !follow {
+			fmt.Println("[]")
 			return
 		}
 	}
@@ -69,12 +70,14 @@ func runCat(topic string, cfg config.Config, follow bool) {
 	}
 	defer pc.Close()
 
+	fmt.Println("[")
+
 	for msg := range pc.Messages() {
 		// Check if the message is empty or too short to contain a schema ID
 		if len(msg.Value) < 5 {
 			logger.Error("Message too short to contain schema ID", "length", len(msg.Value))
 			if msg.Offset >= latestOffset-1 {
-				fmt.Println("Reached end of topic. Exiting.")
+				logger.Info("Reached end of topic. Exiting.")
 				break
 			}
 			continue
@@ -103,13 +106,18 @@ func runCat(topic string, cfg config.Config, follow bool) {
 			logger.Error("Failed to marshal payload data to JSON", "error", err)
 			continue
 		}
-		fmt.Println(string(jsonPayload))
+		fmt.Print(string(jsonPayload))
 
 		if msg.Offset >= latestOffset-1 && !follow {
 			logger.Info("Reached end of topic. Exiting.")
 			break
 		}
+
+		fmt.Println(",")
 	}
+
+	fmt.Println()
+	fmt.Println("]")
 }
 
 // decodeBase64OrRaw tries to decode the input as base64, returns raw bytes if not base64
