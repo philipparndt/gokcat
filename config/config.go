@@ -58,8 +58,10 @@ func LoadConfig(file string) (Config, error) {
 	updateCertsPath(configFile, &cfg)
 
 	if cfg.LogLevel == "" {
-		cfg.LogLevel = "info"
+		cfg.LogLevel = "debug"
 	}
+
+	logger.SetLevel(strings.ToUpper(cfg.LogLevel))
 
 	return cfg, nil
 }

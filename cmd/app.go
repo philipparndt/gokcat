@@ -72,16 +72,13 @@ func runCat(topic string, cfg config.Config, follow bool) {
 
 	fmt.Println("[")
 
+	ctr := 0
+
 	for msg := range pc.Messages() {
-		// Check if the message is empty or too short to contain a schema ID
-		if len(msg.Value) < 5 {
-			logger.Error("Message too short to contain schema ID", "length", len(msg.Value))
-			if msg.Offset >= latestOffset-1 {
-				logger.Info("Reached end of topic. Exiting.")
-				break
-			}
-			continue
+		if ctr%1000 == 0 && ctr > 0 {
+			logger.Debug("Processed " + strconv.Itoa(ctr) + " messages")
 		}
+		ctr++
 
 		var payloadData interface{} = nil
 		var schema *schemaRegistry.Schema
