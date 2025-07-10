@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"errors"
-	"github.com/philipparndt/go-logger"
 	"gokcat/config"
 	"os"
+
+	"github.com/philipparndt/go-logger"
 
 	"github.com/spf13/cobra"
 )
@@ -33,7 +34,7 @@ var rootCmd = &cobra.Command{
 			logger.Panic("Failed to load config", configFile, ",", err)
 		}
 
-		runCat(topic, cfg, follow)
+		runCat(topic, cfg, follow, tail)
 	},
 }
 
@@ -50,10 +51,12 @@ var topic string
 var configFile string
 var systemAlias string
 var follow bool
+var tail int
 
 func init() {
 	rootCmd.Flags().StringVarP(&topic, "topic", "t", "", "Kafka topic to consume messages from")
 	rootCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the configuration file")
 	rootCmd.Flags().StringVarP(&systemAlias, "systemAlias", "s", "", "System alias")
 	rootCmd.Flags().BoolVarP(&follow, "follow", "f", false, "Follow the topic (like tail -f)")
+	rootCmd.Flags().IntVar(&tail, "tail", 0, "Read the last n messages from the topic")
 }

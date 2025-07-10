@@ -1,18 +1,18 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"github.com/IBM/sarama"
-	"github.com/philipparndt/go-logger"
 	"gokcat/config"
 	"gokcat/internal/kafka"
 	"gokcat/internal/kafka/schemaRegistry"
-	"gokcat/message"
+	"gokcat/kafkaUtil"
 	"strconv"
+
+	"github.com/IBM/sarama"
+	"github.com/philipparndt/go-logger"
 )
 
-func runCat(topic string, cfg config.Config, follow bool) {
+func runCat(topic string, cfg config.Config, follow bool, tail int) {
 	partition := int32(0)
 	tlsConfig, err := kafka.NewTLSConfig(cfg.Certs.ClientCert, cfg.Certs.ClientKey, cfg.Certs.Ca, cfg.Certs.Insecure)
 	if err != nil {
@@ -49,22 +49,27 @@ func runCat(topic string, cfg config.Config, follow bool) {
 		logger.Panic("Failed to get latest offset", err)
 	}
 
-	if latestOffset == 0 {
-		logger.Info("No messages found in topic", topic)
-		if !follow {
-			fmt.Println("[]")
-			return
-		}
-	}
-
-	if follow {
+	var startOffset int64
+	if tail > 0 {
+		// For tail, try to start from a smart position to minimize processing
+		startOffset = calculateTailStartOffset(client, partition, tail, latestOffset)
+		logger.Info("Tailing last", strconv.Itoa(tail), "messages from offset", strconv.Itoa(int(startOffset)))
+	} else if follow {
+		startOffset = sarama.OffsetNewest
 		latestOffset = -1
 		logger.Info("Following topic, press Ctrl+C to exit")
 	} else {
+		startOffset = sarama.OffsetOldest
 		logger.Info("Consuming until offset", strconv.Itoa(int(latestOffset)))
 	}
 
-	pc, err := consumer.ConsumePartition(topic, partition, sarama.OffsetOldest)
+	if latestOffset == 0 && !follow {
+		logger.Info("No messages found in topic", topic)
+		fmt.Println("[]")
+		return
+	}
+
+	pc, err := consumer.ConsumePartition(topic, partition, startOffset)
 	if err != nil {
 		logger.Panic("Failed to consume partition", err)
 	}
@@ -72,67 +77,14 @@ func runCat(topic string, cfg config.Config, follow bool) {
 
 	fmt.Println("[")
 
-	ctr := 0
-
-	for msg := range pc.Messages() {
-		if ctr%1000 == 0 && ctr > 0 {
-			logger.Debug("Processed " + strconv.Itoa(ctr) + " messages")
-		}
-		ctr++
-
-		var payloadData interface{} = nil
-		var schema *schemaRegistry.Schema
-
-		// Check if the message starts with magic byte (0x0 for Confluent wire format)
-		if len(msg.Value) < 5 || msg.Value[0] != 0x0 {
-			payloadDataString := decodeBase64OrRaw(msg.Value)
-			payloadData = decodeJSONOrRaw(payloadDataString)
-		} else {
-			schema, err = deserializer.LoadSchemaInfo(topic, msg)
-			if err != nil {
-				logger.Panic("Failed to load schema info", err)
-			}
-
-			payloadData = deserializer.Deserialize(schema, msg.Value[5:])
-		}
-
-		out := message.New(schema, payloadData, msg)
-
-		jsonPayload, err := json.MarshalIndent(out, "", "  ")
-		if err != nil {
-			logger.Error("Failed to marshal payload data to JSON", "error", err)
-			continue
-		}
-		fmt.Print(string(jsonPayload))
-
-		if msg.Offset >= latestOffset-1 && !follow {
-			logger.Info("Reached end of topic. Exiting.")
-			break
-		}
-
-		fmt.Println(",")
+	if tail > 0 {
+		kafkaUtil.Tail(topic, tail, follow, pc, deserializer, latestOffset)
+	} else {
+		kafkaUtil.Cat(topic, follow, pc, deserializer, latestOffset)
 	}
 
 	fmt.Println()
 	fmt.Println("]")
-}
-
-// decodeBase64OrRaw tries to decode the input as base64, returns raw bytes if not base64
-func decodeBase64OrRaw(data []byte) []byte {
-	decoded, err := strconv.Unquote("\"" + string(data) + "\"")
-	if err == nil {
-		return []byte(decoded)
-	}
-	return data
-}
-
-// decodeJSONOrRaw tries to decode the input as JSON, returns raw bytes if not JSON
-func decodeJSONOrRaw(data []byte) interface{} {
-	var v interface{}
-	if err := json.Unmarshal(data, &v); err == nil {
-		return v
-	}
-	return data
 }
 
 func getOffset(client sarama.Client, partition int32) (int64, error) {
@@ -147,4 +99,40 @@ func getOffset(client sarama.Client, partition int32) (int64, error) {
 	}
 
 	return latestOffset - 1, nil
+}
+
+func calculateTailStartOffset(client sarama.Client, partition int32, tail int, latestOffset int64) int64 {
+	if latestOffset <= 0 {
+		return sarama.OffsetOldest
+	}
+
+	// Get the oldest available offset
+	oldestOffset, err := client.GetOffset(topic, partition, sarama.OffsetOldest)
+	if err != nil {
+		logger.Debug("Failed to get oldest offset, starting from beginning")
+		return sarama.OffsetOldest
+	}
+
+	totalOffsetRange := latestOffset - oldestOffset + 1
+
+	// If the range is small, start from the beginning
+	if totalOffsetRange <= int64(tail*2) {
+		return oldestOffset
+	}
+
+	// Use a conservative heuristic: assume reasonable message density
+	// Start from much closer to the end to minimize processing
+	estimatedStart := latestOffset - int64(tail*5) // 5x buffer for gaps
+	if estimatedStart < oldestOffset {
+		estimatedStart = oldestOffset
+	}
+
+	return estimatedStart
+}
+
+func min(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
 }
