@@ -78,7 +78,7 @@ func runCat(topic string, cfg config.Config, follow bool, tail int) {
 	fmt.Println("[")
 
 	if tail > 0 {
-		kafkaUtil.Tail(topic, tail, follow, pc, deserializer, latestOffset)
+		kafkaUtil.Tail(topic, tail, follow, pc, deserializer, startOffset, latestOffset)
 	} else {
 		kafkaUtil.Cat(topic, follow, pc, deserializer, latestOffset)
 	}
