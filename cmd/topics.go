@@ -67,14 +67,14 @@ func runTopics(cfg config.Config) {
 	}
 
 	if len(topics) == 0 {
-		fmt.Println("No topics found")
+		logger.Info("No topics found")
 		return
 	}
 
 	// Sort topics alphabetically
 	sort.Strings(topics)
 
-	fmt.Printf("Found %d topics:\n", len(topics))
+	logger.Info(fmt.Sprintf("Found %d topics", len(topics)))
 	for _, topic := range topics {
 		fmt.Println(topic)
 	}
