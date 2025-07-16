@@ -33,12 +33,10 @@ LATEST_URL=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | \
     cut -d '"' -f 4)
 
 if [ -z "$LATEST_URL" ]; then
-    echo "Error: Could not find a release for $OS/$ARCH"
-    echo "Available releases:"
-    curl -s "https://api.github.com/repos/$REPO/releases/latest" | \
-        grep "browser_download_url" | \
-        cut -d '"' -f 4
-    exit 1
+    echo "Warning: Could not get latest release from GitHub API (possibly rate limited)"
+    echo "Falling back to known stable release v0.7.2..."
+    LATEST_URL="https://github.com/$REPO/releases/download/v0.7.2/gokcat_${OS}_${ARCH}.tar.gz"
+    echo "Using fallback URL: $LATEST_URL"
 fi
 
 # Create temporary directory
