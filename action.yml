@@ -11,4 +11,4 @@ outputs:
     description: 'Path to the installed gokcat binary.'
 runs:
   using: 'node12'
-  main: 'dist/index.js'
+  main: 'action/dist/index.js'
