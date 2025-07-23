@@ -1,0 +1,14 @@
+name: 'setup-gokcat'
+description: 'Download and install the latest gokcat binary with caching support.'
+author: 'philipparndt'
+inputs:
+  install-dir:
+    description: 'Directory to install gokcat binary.'
+    required: false
+    default: '/usr/local/bin'
+outputs:
+  gokcat-path:
+    description: 'Path to the installed gokcat binary.'
+runs:
+  using: 'node12'
+  main: 'dist/index.js'
