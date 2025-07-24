@@ -28245,7 +28245,9 @@ const rest_1 = __nccwpck_require__(9380);
 const defaultVersion = "v0.7.2";
 async function getLatestVersion(platform, arch) {
     try {
-        const octokit = new rest_1.Octokit();
+        const octokit = new rest_1.Octokit({
+            baseUrl: "https://api.github.com"
+        });
         const release = await octokit.repos.getLatestRelease({ owner: "philipparndt", repo: "gokcat" });
         for (const asset of release.data.assets) {
             if (asset.name.includes(`${platform}_${arch}`) && asset.name.endsWith(".tar.gz")) {
