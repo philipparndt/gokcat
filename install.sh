@@ -34,8 +34,8 @@ LATEST_URL=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | \
 
 if [ -z "$LATEST_URL" ]; then
     echo "Warning: Could not get latest release from GitHub API (possibly rate limited)"
-    echo "Falling back to known stable release v0.7.3..."
-    LATEST_URL="https://github.com/$REPO/releases/download/v0.7.3/gokcat_${OS}_${ARCH}.tar.gz"
+    echo "Falling back to known stable release v0.7.4..."
+    LATEST_URL="https://github.com/$REPO/releases/download/v0.7.4/gokcat_${OS}_${ARCH}.tar.gz"
     echo "Using fallback URL: $LATEST_URL"
 fi
 
