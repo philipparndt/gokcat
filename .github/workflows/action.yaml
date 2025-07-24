@@ -1,0 +1,16 @@
+name: Setup Action
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+    workflow_dispatch:
+
+jobs:
+    build:
+        name: Setup Action
+        runs-on: ubuntu-latest
+        steps:
+            - name: Setup gokcat
+              uses: .
