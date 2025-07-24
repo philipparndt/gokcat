@@ -13,7 +13,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Setup gokcat
-              uses: philipparndt/gokcat@feat/ghe
+              uses: philipparndt/gokcat@${{ github.ref_name }}
 
             - name: Run gokcat
               run: |
