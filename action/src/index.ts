@@ -1,76 +1,123 @@
-import * as core from "@actions/core"
-import * as tc from "@actions/tool-cache"
-import * as io from "@actions/io"
-import {chmodSync} from "fs"
-import * as path from "path"
-import * as os from "os"
-import {Octokit} from "@octokit/rest"
+import * as os from 'os'
+import * as path from 'path'
+import * as util from 'util'
+import * as fs from 'fs'
+import semver from 'semver'
 
-const defaultVersion = "v0.7.2"
+import * as toolCache from '@actions/tool-cache'
+import * as core from '@actions/core'
 
-async function getLatestVersion(platform: string, arch: string) {
+const toolName = 'gokcat'
+const stableVersion = 'v0.7.2'
+const allReleasesUrl = 'https://api.github.com/repos/philipparndt/gokcat/releases'
+
+const getDownloadURL = (version: string): string => {
+	const arch = os.arch() === "arm64" ? "arm64" : os.arch() === "x64" ? "x86_64" : os.arch()
+	const platform = os.platform() === "darwin" ? "linux" : os.platform()
+
+	return `https://github.com/philipparndt/gokcat/releases/download/${version}/gokcat_${platform}_${arch}.tar.gz`
+}
+
+const getstableVersion = async (): Promise<string> => {
 	try {
-	    const octokit = new Octokit({
-		    baseUrl: "https://api.github.com"
-	    })
-		const release = await octokit.repos.getLatestRelease({owner: "philipparndt", repo: "gokcat"});
-		for (const asset of release.data.assets) {
-			if (asset.name.includes(`${platform}_${arch}`) && asset.name.endsWith(".tar.gz")) {
-				return release.data.name || defaultVersion; // Use the release name as version, fallback to default if not available
+		const downloadPath = await toolCache.downloadTool(allReleasesUrl)
+		const responseArray = JSON.parse(fs.readFileSync(downloadPath, 'utf8').toString().trim())
+		let latestVersion = semver.clean(stableVersion) || stableVersion
+		responseArray.forEach((response: any) => {
+			if (response && response.tag_name) {
+				let currentVerison = semver.clean(response.tag_name.toString())
+				if (currentVerison) {
+					if (currentVerison.toString().indexOf('rc') == -1 && semver.gt(currentVerison, latestVersion)) {
+						latestVersion = currentVerison
+					}
+				}
+			}
+		})
+		latestVersion = "v" + latestVersion.toString()
+		return latestVersion
+	} catch (error) {
+		core.warning(util.format("Cannot get the latest gokcat info from %s. Error %s. Using default gokcat version %s.", allReleasesUrl, error, stableVersion))
+	}
+
+	return stableVersion
+}
+
+
+const walkSync = (dir: string, filelist: string[], fileToFind: string) => {
+	const files = fs.readdirSync(dir)
+	filelist = filelist || []
+	files.forEach(function (file) {
+		if (fs.statSync(path.join(dir, file)).isDirectory()) {
+			filelist = walkSync(path.join(dir, file), filelist, fileToFind)
+		}
+		else {
+			core.debug(file)
+			if (file == fileToFind) {
+				filelist.push(path.join(dir, file))
 			}
 		}
-	} catch (error) {
-		core.warning(`Error fetching latest version, defaulting to ${defaultVersion} ${error}`)
-	}
-
-	return defaultVersion
+	})
+	return filelist
 }
 
-async function run() {
+const downloadTool = async (version: string): Promise<string> => {
+	if (!version) { version = await getstableVersion() }
+	let cachedToolPath = toolCache.find(toolName, version)
+	if (!cachedToolPath) {
+		let downloadPath
+		try {
+			downloadPath = await toolCache.downloadTool(getDownloadURL(version))
+		} catch (exception) {
+			throw new Error(util.format("Failed to download gokcat from location ", getDownloadURL(version)))
+		}
+
+		fs.chmodSync(downloadPath, '777')
+		cachedToolPath = await toolCache.cacheFile(downloadPath, toolName, toolName, version)
+	}
+
+	const toolPath = findTool(cachedToolPath)
+	if (!toolPath) {
+		throw new Error(util.format("gokcat executable not found in path ", cachedToolPath))
+	}
+
+	fs.chmodSync(toolPath, '777')
+	return toolPath
+}
+
+const findTool = (rootFolder: string): string => {
+	fs.chmodSync(rootFolder, '777')
+	var filelist: string[] = []
+	walkSync(rootFolder, filelist, toolName)
+	if (!filelist) {
+		throw new Error(util.format("gokcat executable not found in path ", rootFolder))
+	}
+	else {
+		return filelist[0]
+	}
+}
+
+const run = async () => {
+	let version = core.getInput('version', { 'required': true })
+	if (version.toLocaleLowerCase() === 'latest') {
+		version = await getstableVersion()
+	} else if (!version.toLocaleLowerCase().startsWith('v')) {
+		version = 'v' + version
+	}
+
+	let cachedPath = await downloadTool(version)
+
 	try {
-		const arch = os.arch() === "arm64" ? "arm64" : os.arch() === "x64" ? "x86_64" : os.arch()
-		const platform = os.platform() === "darwin" ? "linux" : os.platform()
-		const toolName = "gokcat"
-		const installDir = core.getInput("install-dir") || "/usr/local/bin"
-		const version = await getLatestVersion(platform, arch)
-
-		// Try to find in tool cache
-		let toolPath = tc.find(toolName, version, arch)
-		if (toolPath) {
-			const destPath = path.join(installDir, toolName)
-			await io.mkdirP(installDir)
-			await io.cp(path.join(toolPath, toolName), destPath)
-			chmodSync(destPath, 0o755)
-			core.info(`Found gokcat in tool cache: ${destPath}`)
-			core.setOutput("gokcat-path", destPath)
-			return
-		}
-
-		const assetUrl = `https://github.com/philipparndt/gokcat/releases/download/${version}/gokcat_${platform}_${arch}.tar.gz`
-
-		// Download and extract
-		const downloadPath = await tc.downloadTool(assetUrl)
-		const extractPath = await tc.extractTar(downloadPath)
-		const gokcatPath = path.join(extractPath, toolName)
-
-		// Cache the extracted binary
-		toolPath = await tc.cacheFile(gokcatPath, toolName, toolName, version, arch)
-		core.info(`Cached gokcat at ${toolPath}`)
-
-		// Move binary to installDir
-		const destPath = path.join(installDir, toolName)
-		await io.mkdirP(installDir)
-		await io.cp(gokcatPath, destPath)
-		chmodSync(destPath, 0o755)
-		core.info(`Installed gokcat to ${destPath}`)
-		core.setOutput("gokcat-path", destPath)
-	} catch (error) {
-		if (error instanceof Error) {
-			core.setFailed(error.message)
-		} else {
-			core.setFailed("Unknown error occurred")
+		const envPath = process.env['PATH'] || ''
+		if (!envPath.startsWith(path.dirname(cachedPath))) {
+			core.addPath(path.dirname(cachedPath))
 		}
 	}
+	catch {
+		//do nothing, set as output variable
+	}
+
+	console.log(`gokcat tool version: '${version}' has been cached at ${cachedPath}`)
+	core.setOutput('gokcat-path', cachedPath)
 }
 
-run().then()
+run().catch(core.setFailed)
