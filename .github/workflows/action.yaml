@@ -14,3 +14,9 @@ jobs:
         steps:
             - name: Setup gokcat
               uses: philipparndt/gokcat@feat/setup-action
+
+            - name: Run gokcat
+              run: |
+                echo "Running gokcat to verify setup..."
+                gokcat --help
+                echo "gokcat setup completed successfully."
