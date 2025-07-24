@@ -11,7 +11,7 @@ brew install philipparndt/gokcat/gokcat
 ## GitHub Actions
 
 ```yaml
-- uses: actions-mirror/philipparndt-gokcat@main
+- uses: philipparndt/gokcat@main
   with:
     version: latest # or any version
 ```
