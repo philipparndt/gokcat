@@ -31001,8 +31001,15 @@ const downloadTool = async (version) => {
         catch (exception) {
             throw new Error(util.format("Failed to download gokcat from location ", getDownloadURL(version)));
         }
-        fs.chmodSync(downloadPath, '777');
-        cachedToolPath = await toolCache.cacheFile(downloadPath, toolName, toolName, version);
+        // Extract the tar.gz archive
+        let extractFolder;
+        try {
+            extractFolder = await toolCache.extractTar(downloadPath);
+        }
+        catch (exception) {
+            throw new Error(util.format("Failed to extract gokcat archive at ", downloadPath));
+        }
+        cachedToolPath = extractFolder;
     }
     const toolPath = findTool(cachedToolPath);
     if (!toolPath) {
