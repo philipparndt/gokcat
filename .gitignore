@@ -1,3 +1,4 @@
 .idea/
 gokcat
 node_modules/
+dist/
