@@ -31009,7 +31009,13 @@ const downloadTool = async (version) => {
         catch (exception) {
             throw new Error(util.format("Failed to extract gokcat archive at ", downloadPath));
         }
-        cachedToolPath = extractFolder;
+        // Find the gokcat binary in the extracted folder
+        const gokcatPath = findTool(extractFolder);
+        if (!gokcatPath) {
+            throw new Error(util.format("gokcat executable not found after extraction in ", extractFolder));
+        }
+        // Cache the gokcat binary
+        cachedToolPath = await toolCache.cacheFile(gokcatPath, toolName, toolName, version);
     }
     const toolPath = findTool(cachedToolPath);
     if (!toolPath) {
