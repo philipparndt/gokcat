@@ -1,0 +1,67 @@
+name: Update Version References
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Get release version
+        id: get_version
+        run: |
+          # Extract version from the release tag
+          VERSION="${{ github.event.release.tag_name }}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Release version: $VERSION"
+
+      - name: Update action.yml
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          sed -i.bak "s/default: 'v[0-9]\+\.[0-9]\+\.[0-9]\+'/default: '$VERSION'/" action.yml
+          rm action.yml.bak
+          echo "Updated action.yml with version $VERSION"
+
+      - name: Update install.sh
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          # Update the fallback message
+          sed -i.bak "s/Falling back to known stable release v[0-9]\+\.[0-9]\+\.[0-9]\+\.\.\./Falling back to known stable release $VERSION.../" install.sh
+          # Update the fallback URL
+          sed -i.bak2 "s|releases/download/v[0-9]\+\.[0-9]\+\.[0-9]\+/|releases/download/$VERSION/|" install.sh
+          rm install.sh.bak install.sh.bak2
+          echo "Updated install.sh with version $VERSION"
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet; then
+            echo "changes=false" >> $GITHUB_OUTPUT
+            echo "No changes detected"
+          else
+            echo "changes=true" >> $GITHUB_OUTPUT
+            echo "Changes detected:"
+            git diff
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changes == 'true'
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add action.yml install.sh
+          git commit -m "chore: update version references to $VERSION [skip ci]"
+          git push origin main
