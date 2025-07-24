@@ -13,4 +13,4 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Setup gokcat
-              uses: philipparndt/gokcat@main
+              uses: philipparndt/gokcat@feat/setup-action
