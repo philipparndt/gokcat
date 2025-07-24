@@ -13,11 +13,13 @@
     "@actions/tool-cache": "^2.0.2",
     "@octokit/rest": "^22.0.0",
     "node-fetch": "^2.6.7",
+    "semver": "^7.7.2",
     "tmp-promise": "^3.0.3"
   },
   "devDependencies": {
     "@types/node": "^24.1.0",
     "@types/node-fetch": "^2.6.12",
+    "@types/semver": "^7.7.0",
     "@vercel/ncc": "^0.38.1",
     "typescript": "^5.4.5"
   }
