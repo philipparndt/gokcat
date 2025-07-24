@@ -4,8 +4,7 @@
   "description": "GitHub Action to download and install the latest gokcat binary with caching support.",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
-    "prepare": "ncc build src/index.ts -o dist"
+    "build": "ncc build src/index.ts -o dist"
   },
   "dependencies": {
     "@actions/cache": "^3.2.3",
