@@ -8,6 +8,14 @@
 brew install philipparndt/gokcat/gokcat
 ```
 
+## GitHub Actions
+
+```yaml
+- uses: actions-mirror/philipparndt-gokcat@main
+  with:
+    version: latest # or any version
+```
+
 ## Features
 - Consume messages from Kafka topics
 - TLS support for secure connections
