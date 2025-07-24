@@ -18,6 +18,5 @@ jobs:
             - name: Run gokcat
               run: |
                 echo "Running gokcat to verify setup..."
-                file /opt/hostedtoolcache/gokcat/0.7.2/x64/gokcat
                 gokcat --help
                 echo "gokcat setup completed successfully."
