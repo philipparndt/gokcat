@@ -28242,13 +28242,29 @@ const fs_1 = __nccwpck_require__(9896);
 const path = __importStar(__nccwpck_require__(6928));
 const os = __importStar(__nccwpck_require__(857));
 const rest_1 = __nccwpck_require__(9380);
+const defaultVersion = "v0.7.2";
+async function getLatestVersion(platform, arch) {
+    try {
+        const octokit = new rest_1.Octokit();
+        const release = await octokit.repos.getLatestRelease({ owner: "philipparndt", repo: "gokcat" });
+        for (const asset of release.data.assets) {
+            if (asset.name.includes(`${platform}_${arch}`) && asset.name.endsWith(".tar.gz")) {
+                return release.data.name || defaultVersion; // Use the release name as version, fallback to default if not available
+            }
+        }
+    }
+    catch (error) {
+        core.warning(`Error fetching latest version, defaulting to ${defaultVersion} ${error}`);
+    }
+    return defaultVersion;
+}
 async function run() {
     try {
         const arch = os.arch() === "arm64" ? "arm64" : os.arch() === "x64" ? "x86_64" : os.arch();
         const platform = os.platform() === "darwin" ? "linux" : os.platform();
-        const version = "latest"; // You can make this configurable if needed
         const toolName = "gokcat";
         const installDir = core.getInput("install-dir") || "/usr/local/bin";
+        const version = await getLatestVersion(platform, arch);
         // Try to find in tool cache
         let toolPath = tc.find(toolName, version, arch);
         if (toolPath) {
@@ -28260,25 +28276,7 @@ async function run() {
             core.setOutput("gokcat-path", destPath);
             return;
         }
-        // Get latest release info
-        let assetUrl = "";
-        const octokit = new rest_1.Octokit();
-        const release = await octokit.repos.getLatestRelease({ owner: "philipparndt", repo: "gokcat" });
-        if (!release.data.assets || release.data.assets.length === 0) {
-            core.warning("Could not find latest release asset, falling back to v0.7.2");
-            assetUrl = `https://github.com/philipparndt/gokcat/releases/download/v0.7.2/gokcat_${platform}_${arch}.tar.gz`;
-        }
-        else {
-            for (const asset of release.data.assets) {
-                if (asset.name.includes(`${platform}_${arch}`) && asset.name.endsWith(".tar.gz")) {
-                    assetUrl = asset.browser_download_url;
-                    break;
-                }
-            }
-        }
-        if (!assetUrl) {
-            throw new Error("Could not determine asset URL for gokcat");
-        }
+        const assetUrl = `https://github.com/philipparndt/gokcat/releases/download/${version}/gokcat_${platform}_${arch}.tar.gz`;
         // Download and extract
         const downloadPath = await tc.downloadTool(assetUrl);
         const extractPath = await tc.extractTar(downloadPath);
