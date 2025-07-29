@@ -5,7 +5,7 @@ inputs:
   version:
     description: 'Version of gokcat to install. If not specified, the latest version will be used.'
     required: true
-    default: 'v0.7.5'
+    default: 'v0.7.6'
 outputs:
   gokcat-path:
     description: 'Path to the installed gokcat binary.'
