@@ -111,7 +111,7 @@ const findTool = (rootFolder: string): string => {
 }
 
 const run = async () => {
-	let version = core.getInput("ver sion", { "required": true })
+	let version = core.getInput("version", { "required": true })
 	if (version.toLocaleLowerCase() === "latest") {
 		version = await getStableVersion()
 	} else if (!version.toLocaleLowerCase().startsWith("v")) {
