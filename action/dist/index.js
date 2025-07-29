@@ -30941,25 +30941,25 @@ const fs = __importStar(__nccwpck_require__(9896));
 const semver_1 = __importDefault(__nccwpck_require__(2088));
 const toolCache = __importStar(__nccwpck_require__(3472));
 const core = __importStar(__nccwpck_require__(7484));
-const toolName = 'gokcat';
-const stableVersion = 'v0.7.2';
-const allReleasesUrl = 'https://api.github.com/repos/philipparndt/gokcat/releases';
+const toolName = "gokcat";
+const stableVersion = "v0.7.2";
+const allReleasesUrl = "https://api.github.com/repos/philipparndt/gokcat/releases";
 const getDownloadURL = (version) => {
     const arch = os.arch() === "arm64" ? "arm64" : os.arch() === "x64" ? "x86_64" : os.arch();
     const platform = os.platform() === "darwin" ? "linux" : os.platform();
     return `https://github.com/philipparndt/gokcat/releases/download/${version}/gokcat_${platform}_${arch}.tar.gz`;
 };
-const getstableVersion = async () => {
+const getStableVersion = async () => {
     try {
         const downloadPath = await toolCache.downloadTool(allReleasesUrl);
-        const responseArray = JSON.parse(fs.readFileSync(downloadPath, 'utf8').toString().trim());
+        const responseArray = JSON.parse(fs.readFileSync(downloadPath, "utf8").toString().trim());
         let latestVersion = semver_1.default.clean(stableVersion) || stableVersion;
         responseArray.forEach((response) => {
             if (response && response.tag_name) {
-                let currentVerison = semver_1.default.clean(response.tag_name.toString());
-                if (currentVerison) {
-                    if (currentVerison.toString().indexOf('rc') == -1 && semver_1.default.gt(currentVerison, latestVersion)) {
-                        latestVersion = currentVerison;
+                let currentVersion = semver_1.default.clean(response.tag_name.toString());
+                if (currentVersion) {
+                    if (currentVersion.toString().indexOf("rc") == -1 && semver_1.default.gt(currentVersion, latestVersion)) {
+                        latestVersion = currentVersion;
                     }
                 }
             }
@@ -30972,25 +30972,25 @@ const getstableVersion = async () => {
     }
     return stableVersion;
 };
-const walkSync = (dir, filelist, fileToFind) => {
+const walkSync = (dir, fileList, fileToFind) => {
     const files = fs.readdirSync(dir);
-    filelist = filelist || [];
+    fileList = fileList || [];
     files.forEach(function (file) {
         if (fs.statSync(path.join(dir, file)).isDirectory()) {
-            filelist = walkSync(path.join(dir, file), filelist, fileToFind);
+            fileList = walkSync(path.join(dir, file), fileList, fileToFind);
         }
         else {
             core.debug(file);
             if (file == fileToFind) {
-                filelist.push(path.join(dir, file));
+                fileList.push(path.join(dir, file));
             }
         }
     });
-    return filelist;
+    return fileList;
 };
 const downloadTool = async (version) => {
     if (!version) {
-        version = await getstableVersion();
+        version = await getStableVersion();
     }
     let cachedToolPath = toolCache.find(toolName, version);
     if (!cachedToolPath) {
@@ -31021,31 +31021,31 @@ const downloadTool = async (version) => {
     if (!toolPath) {
         throw new Error(util.format("gokcat executable not found in path ", cachedToolPath));
     }
-    fs.chmodSync(toolPath, '777');
+    fs.chmodSync(toolPath, "777");
     return toolPath;
 };
 const findTool = (rootFolder) => {
-    fs.chmodSync(rootFolder, '777');
-    var filelist = [];
-    walkSync(rootFolder, filelist, toolName);
-    if (!filelist) {
+    fs.chmodSync(rootFolder, "777");
+    let fileList = [];
+    walkSync(rootFolder, fileList, toolName);
+    if (!fileList) {
         throw new Error(util.format("gokcat executable not found in path ", rootFolder));
     }
     else {
-        return filelist[0];
+        return fileList[0];
     }
 };
 const run = async () => {
-    let version = core.getInput('version', { 'required': true });
-    if (version.toLocaleLowerCase() === 'latest') {
-        version = await getstableVersion();
+    let version = core.getInput("ver sion", { "required": true });
+    if (version.toLocaleLowerCase() === "latest") {
+        version = await getStableVersion();
     }
-    else if (!version.toLocaleLowerCase().startsWith('v')) {
-        version = 'v' + version;
+    else if (!version.toLocaleLowerCase().startsWith("v")) {
+        version = "v" + version;
     }
     let cachedPath = await downloadTool(version);
     try {
-        const envPath = process.env['PATH'] || '';
+        const envPath = process.env["PATH"] || "";
         if (!envPath.startsWith(path.dirname(cachedPath))) {
             core.addPath(path.dirname(cachedPath));
         }
@@ -31053,8 +31053,8 @@ const run = async () => {
     catch {
         //do nothing, set as output variable
     }
-    console.log(`gokcat tool version: '${version}' has been cached at ${cachedPath}`);
-    core.setOutput('gokcat-path', cachedPath);
+    console.log(`gokcat tool version: "${version}" has been cached at ${cachedPath}`);
+    core.setOutput("gokcat-path", cachedPath);
 };
 run().catch(core.setFailed);
 
