@@ -1,22 +1,22 @@
 name: Setup Action
 
 on:
-    push:
-        branches: [main]
-    pull_request:
-        branches: [main]
-    workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
-    build:
-        name: Setup Action
-        runs-on: ubuntu-latest
-        steps:
-            - name: Setup gokcat
-              uses: philipparndt/gokcat@main
+  build:
+    name: Setup Action
+    runs-on: ubuntu-latest
+    steps:
+    - name: Setup gokcat
+      uses: philipparndt/gokcat@main
 
-            - name: Run gokcat
-              run: |
-                echo "Running gokcat to verify setup..."
-                gokcat --help
-                echo "gokcat setup completed successfully."
+    - name: Run gokcat
+      run: |
+        echo "Running gokcat to verify setup..."
+        gokcat --help
+        echo "gokcat setup completed successfully."
