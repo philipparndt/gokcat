@@ -4,7 +4,7 @@ go 1.24.4
 
 require (
 	github.com/IBM/sarama v1.45.2
-	github.com/hamba/avro/v2 v2.29.0
+	github.com/hamba/avro/v2 v2.30.0
 	github.com/philipparndt/go-logger v1.5.0
 	github.com/spf13/cobra v1.9.1
 )
@@ -14,7 +14,7 @@ require (
 	github.com/eapache/go-resiliency v1.7.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20230731223053-c322873962e3 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
-	github.com/go-viper/mapstructure/v2 v2.3.0 // indirect
+	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
