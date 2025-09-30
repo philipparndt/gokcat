@@ -5,7 +5,7 @@ go 1.24.4
 require (
 	github.com/IBM/sarama v1.45.2
 	github.com/hamba/avro/v2 v2.29.0
-	github.com/philipparndt/go-logger v1.5.0
+	github.com/philipparndt/go-logger v1.7.0
 	github.com/spf13/cobra v1.9.1
 )
 
