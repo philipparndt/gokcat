@@ -10,6 +10,7 @@ import (
 
 	"github.com/IBM/sarama"
 	av "github.com/hamba/avro/v2"
+	"github.com/philipparndt/go-logger"
 )
 
 type Client struct {
@@ -29,11 +30,15 @@ type SchemaResponse struct {
 }
 
 func New(url string, username string, password string, insecure bool) Client {
+	if insecure {
+		logger.Warn("Using insecure TLS for Schema Registry")
+	}
+
 	// Configure HTTP client with SSL settings
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: insecure},
 	}
-	
+
 	httpClient := &http.Client{
 		Transport: tr,
 		Timeout:   30 * time.Second,
@@ -56,40 +61,40 @@ func (c Client) NewDeserializer() Deserializer {
 // GetSchemaByID fetches a schema from the Schema Registry by its ID
 func (c *Client) GetSchemaByID(schemaID int) (*SchemaResponse, error) {
 	url := fmt.Sprintf("%s/schemas/ids/%d", c.url, schemaID)
-	
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
-	
+
 	// Add Basic Auth if credentials are provided
 	if c.username != "" || c.password != "" {
 		req.SetBasicAuth(c.username, c.password)
 	}
-	
+
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %v", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("schema registry returned status %d: %s", resp.StatusCode, string(body))
 	}
-	
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
-	
+
 	var schemaResp SchemaResponse
 	if err := json.Unmarshal(body, &schemaResp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal schema response: %v", err)
 	}
-	
+
 	return &schemaResp, nil
 }
 
@@ -105,7 +110,7 @@ func (d *Deserializer) LoadSchemaInfo(topic string, msg *sarama.ConsumerMessage)
 	if len(msg.Value) < 5 {
 		return nil, fmt.Errorf("message too short to contain schema ID")
 	}
-	
+
 	// Skip magic byte (first byte) and extract schema ID (next 4 bytes, big-endian)
 	id := (uint32(msg.Value[1]) << 24) | (uint32(msg.Value[2]) << 16) | (uint32(msg.Value[3]) << 8) | uint32(msg.Value[4])
 

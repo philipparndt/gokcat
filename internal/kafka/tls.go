@@ -6,12 +6,18 @@ import (
 	"errors"
 	"fmt"
 	"os"
+
+	"github.com/philipparndt/go-logger"
 )
 
 func NewTLSConfig(certFile, keyFile, caFile string, insecure bool) (*tls.Config, error) {
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		return nil, err
+	}
+
+	if insecure {
+		logger.Warn("Using insecure TLS for Kafka connection")
 	}
 
 	config := &tls.Config{
