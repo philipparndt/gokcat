@@ -13,7 +13,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "gokcat",
 	Short: "Print messages from a Kafka topic",
-	Long:  `Print messages from a Kafka topic.`,
+	Long:  GetHelp("root"),
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		if configFile == "" && systemAlias == "" {
 			return errors.New("you must specify a config file or system alias")

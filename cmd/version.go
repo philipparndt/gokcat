@@ -14,7 +14,7 @@ var jsonOutput bool
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the version information",
-	Long:  `Print the version information of gokcat, including build details.`,
+	Long:  GetHelp("version"),
 	Run: func(cmd *cobra.Command, args []string) {
 		info := version.Get()
 

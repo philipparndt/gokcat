@@ -16,7 +16,7 @@ import (
 var topicsCmd = &cobra.Command{
 	Use:   "topics",
 	Short: "List all Kafka topics",
-	Long:  `List all Kafka topics available on the configured Kafka cluster.`,
+	Long:  GetHelp("topics"),
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		if configFile == "" && systemAlias == "" {
 			return errors.New("you must specify a config file or system alias")
