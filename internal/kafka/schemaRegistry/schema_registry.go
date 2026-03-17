@@ -158,8 +158,20 @@ func (d *Deserializer) Deserialize(schema *Schema, avroData []byte) map[string]i
 		panic(err)
 	}
 
-	// To access fields:
-	m := result.(map[string]interface{})
+	// Handle nil or non-map results
+	if result == nil {
+		return make(map[string]interface{})
+	}
+
+	// Type assert with safety check
+	m, ok := result.(map[string]interface{})
+	if !ok {
+		// If the schema is not a record type (e.g., primitive, array, union),
+		// wrap it in a map with a "value" key
+		return map[string]interface{}{
+			"value": result,
+		}
+	}
 
 	return m
 }
