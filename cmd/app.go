@@ -12,7 +12,7 @@ import (
 	"strconv"
 )
 
-func runCat(topic string, cfg config.Config, follow bool) {
+func runCat(topic string, cfg config.Config, follow bool, tail bool) {
 	partition := int32(0)
 	tlsConfig, err := kafka.NewTLSConfig(cfg.Certs.ClientCert, cfg.Certs.ClientKey, cfg.Certs.Ca, cfg.Certs.Insecure)
 	if err != nil {
@@ -57,14 +57,24 @@ func runCat(topic string, cfg config.Config, follow bool) {
 		}
 	}
 
+	startOffset := sarama.OffsetOldest
+	if tail {
+		startOffset = sarama.OffsetNewest
+		follow = true // --tail implies following
+	}
+
 	if follow {
 		latestOffset = -1
-		logger.Info("Following topic, press Ctrl+C to exit")
+		if tail {
+			logger.Info("Following topic from latest message, press Ctrl+C to exit")
+		} else {
+			logger.Info("Following topic, press Ctrl+C to exit")
+		}
 	} else {
 		logger.Info("Consuming until offset", strconv.Itoa(int(latestOffset)))
 	}
 
-	pc, err := consumer.ConsumePartition(topic, partition, sarama.OffsetOldest)
+	pc, err := consumer.ConsumePartition(topic, partition, startOffset)
 	if err != nil {
 		logger.Panic("Failed to consume partition", err)
 	}
