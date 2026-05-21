@@ -26,6 +26,7 @@ type Message struct {
 		Offset    int64             `json:"offset"`
 		Timestamp string            `json:"timestamp"`
 		Key       string            `json:"key"`
+		Size      int               `json:"size"`
 		Headers   map[string]string `json:"headers,omitempty"`
 	} `json:"metadata,omitempty"`
 
@@ -42,6 +43,7 @@ func New(schema *schemaRegistry.Schema, payloadData interface{}, msg *sarama.Con
 	out.Metadata.Key = string(msg.Key)
 	out.Metadata.Timestamp = msg.Timestamp.Format(time.RFC3339)
 	out.Metadata.Offset = msg.Offset
+	out.Metadata.Size = len(msg.Value)
 
 	if msg.Headers != nil {
 		out.Metadata.Headers = make(map[string]string, len(msg.Headers))
